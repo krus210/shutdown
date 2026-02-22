@@ -22,7 +22,7 @@ func newTestManager(opts ...Option) *Manager {
 
 func TestCloserFunc(t *testing.T) {
 	called := false
-	var cf CloserFunc = func(ctx context.Context) error {
+	var cf CloserFunc = func(_ context.Context) error {
 		called = true
 		return nil
 	}
@@ -45,7 +45,7 @@ func TestRegistrationOrder(t *testing.T) {
 	var mu sync.Mutex
 	for _, name := range []string{"first", "second", "third"} {
 		n := name
-		mgr.RegisterFunc(n, func(ctx context.Context) error {
+		mgr.RegisterFunc(n, func(_ context.Context) error {
 			mu.Lock()
 			order = append(order, n)
 			mu.Unlock()
@@ -76,8 +76,8 @@ func TestExplicitPriority(t *testing.T) {
 	var order []string
 	var mu sync.Mutex
 
-	record := func(name string) func(ctx context.Context) error {
-		return func(ctx context.Context) error {
+	record := func(name string) func(context.Context) error {
+		return func(_ context.Context) error {
 			mu.Lock()
 			order = append(order, name)
 			mu.Unlock()
@@ -112,8 +112,8 @@ func TestMixedPriority(t *testing.T) {
 	var order []string
 	var mu sync.Mutex
 
-	record := func(name string) func(ctx context.Context) error {
-		return func(ctx context.Context) error {
+	record := func(name string) func(context.Context) error {
+		return func(_ context.Context) error {
 			mu.Lock()
 			order = append(order, name)
 			mu.Unlock()
@@ -153,7 +153,7 @@ func TestParallelWithinGroup(t *testing.T) {
 	const sleepDuration = 100 * time.Millisecond
 
 	for i := 0; i < 3; i++ {
-		mgr.RegisterFunc(fmt.Sprintf("comp-%d", i), func(ctx context.Context) error {
+		mgr.RegisterFunc(fmt.Sprintf("comp-%d", i), func(_ context.Context) error {
 			time.Sleep(sleepDuration)
 			return nil
 		}, WithPriority(0))
@@ -178,13 +178,13 @@ func TestSequentialGroups(t *testing.T) {
 
 	var t0, t1 time.Time
 
-	mgr.RegisterFunc("first", func(ctx context.Context) error {
+	mgr.RegisterFunc("first", func(_ context.Context) error {
 		time.Sleep(50 * time.Millisecond)
 		t0 = time.Now()
 		return nil
 	}, WithPriority(0))
 
-	mgr.RegisterFunc("second", func(ctx context.Context) error {
+	mgr.RegisterFunc("second", func(_ context.Context) error {
 		t1 = time.Now()
 		return nil
 	}, WithPriority(1))
@@ -269,9 +269,9 @@ func TestErrorAggregation(t *testing.T) {
 	errA := errors.New("error-a")
 	errB := errors.New("error-b")
 
-	mgr.RegisterFunc("a", func(ctx context.Context) error { return errA }, WithPriority(0))
-	mgr.RegisterFunc("b", func(ctx context.Context) error { return nil }, WithPriority(0))
-	mgr.RegisterFunc("c", func(ctx context.Context) error { return errB }, WithPriority(0))
+	mgr.RegisterFunc("a", func(_ context.Context) error { return errA }, WithPriority(0))
+	mgr.RegisterFunc("b", func(_ context.Context) error { return nil }, WithPriority(0))
+	mgr.RegisterFunc("c", func(_ context.Context) error { return errB }, WithPriority(0))
 
 	err := mgr.Shutdown(context.Background())
 	if err == nil {
@@ -290,7 +290,7 @@ func TestIdempotentShutdown(t *testing.T) {
 
 	var callCount atomic.Int32
 
-	mgr.RegisterFunc("comp", func(ctx context.Context) error {
+	mgr.RegisterFunc("comp", func(_ context.Context) error {
 		callCount.Add(1)
 		return nil
 	})
@@ -316,7 +316,7 @@ func TestIdempotentShutdown(t *testing.T) {
 	}
 }
 
-func TestConcurrentRegisterAndShutdown(t *testing.T) {
+func TestConcurrentRegisterAndShutdown(_ *testing.T) {
 	mgr := newTestManager()
 
 	var wg sync.WaitGroup
@@ -326,7 +326,7 @@ func TestConcurrentRegisterAndShutdown(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			mgr.RegisterFunc(fmt.Sprintf("comp-%d", i), func(ctx context.Context) error {
+			mgr.RegisterFunc(fmt.Sprintf("comp-%d", i), func(_ context.Context) error {
 				return nil
 			})
 		}(i)
@@ -357,7 +357,7 @@ func TestOnErrorCallback(t *testing.T) {
 	}))
 
 	expectedErr := errors.New("component failure")
-	mgr.RegisterFunc("failing", func(ctx context.Context) error {
+	mgr.RegisterFunc("failing", func(_ context.Context) error {
 		return expectedErr
 	})
 
@@ -377,7 +377,7 @@ func TestListenContextCancellation(t *testing.T) {
 	mgr := newTestManager()
 
 	var closed atomic.Bool
-	mgr.RegisterFunc("comp", func(ctx context.Context) error {
+	mgr.RegisterFunc("comp", func(_ context.Context) error {
 		closed.Store(true)
 		return nil
 	})
@@ -411,7 +411,7 @@ func TestListenSignal(t *testing.T) {
 	mgr := newTestManager(WithSignals(syscall.SIGUSR1))
 
 	var closed atomic.Bool
-	mgr.RegisterFunc("comp", func(ctx context.Context) error {
+	mgr.RegisterFunc("comp", func(_ context.Context) error {
 		closed.Store(true)
 		return nil
 	})
@@ -445,7 +445,7 @@ func TestListenSignal(t *testing.T) {
 func TestDoubleSignalForceExit(t *testing.T) {
 	if os.Getenv("TEST_DOUBLE_SIGNAL") == "1" {
 		mgr := New(WithSignals(syscall.SIGUSR1))
-		mgr.RegisterFunc("slow", func(ctx context.Context) error {
+		mgr.RegisterFunc("slow", func(_ context.Context) error {
 			time.Sleep(10 * time.Second)
 			return nil
 		})
@@ -572,8 +572,8 @@ func TestMethodChaining(t *testing.T) {
 
 	// Verify Register returns the manager for chaining.
 	result := mgr.
-		RegisterFunc("a", func(ctx context.Context) error { return nil }).
-		RegisterFunc("b", func(ctx context.Context) error { return nil })
+		RegisterFunc("a", func(_ context.Context) error { return nil }).
+		RegisterFunc("b", func(_ context.Context) error { return nil })
 
 	if result != mgr {
 		t.Error("method chaining returned different manager")
@@ -590,7 +590,7 @@ func TestWithLogger(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&buf, nil))
 
 	mgr := New(WithLogger(logger), WithTimeout(5*time.Second))
-	mgr.RegisterFunc("comp", func(ctx context.Context) error {
+	mgr.RegisterFunc("comp", func(_ context.Context) error {
 		return nil
 	})
 
