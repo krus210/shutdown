@@ -20,12 +20,12 @@ func ExampleManager_basic() {
 		shutdown.WithLogger(discardLogger()),
 	)
 
-	mgr.RegisterFunc("http-server", func(ctx context.Context) error {
+	mgr.RegisterFunc("http-server", func(_ context.Context) error {
 		fmt.Println("http server stopped")
 		return nil
 	})
 
-	mgr.RegisterFunc("database", func(ctx context.Context) error {
+	mgr.RegisterFunc("database", func(_ context.Context) error {
 		fmt.Println("database connection closed")
 		return nil
 	})
@@ -42,17 +42,17 @@ func ExampleManager_priority() {
 		shutdown.WithLogger(discardLogger()),
 	)
 
-	mgr.RegisterFunc("http-server", func(ctx context.Context) error {
+	mgr.RegisterFunc("http-server", func(_ context.Context) error {
 		fmt.Println("1: http server stopped")
 		return nil
 	}, shutdown.WithPriority(0))
 
-	mgr.RegisterFunc("worker", func(ctx context.Context) error {
+	mgr.RegisterFunc("worker", func(_ context.Context) error {
 		fmt.Println("2: worker stopped")
 		return nil
 	}, shutdown.WithPriority(1))
 
-	mgr.RegisterFunc("database", func(ctx context.Context) error {
+	mgr.RegisterFunc("database", func(_ context.Context) error {
 		fmt.Println("3: database closed")
 		return nil
 	}, shutdown.WithPriority(2))
